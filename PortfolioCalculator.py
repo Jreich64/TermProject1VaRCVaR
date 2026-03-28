@@ -29,15 +29,12 @@ def main():
     min_sector_devalue = st.sidebar.number_input("Minimum Sector Devalue Percent", min_value=0.0, max_value=1.0, value=0.0, step=0.01)
     max_sector_devalue = st.sidebar.number_input("Maximum Sector Devalue Percent", min_value=0.0, max_value=1.0, value=0.3, step=0.01)
     st.subheader("Select Funds")
-    saved_funds = st.session_state.get('_saved_funds', [])
-    saved_funds = [f for f in saved_funds if f in All_Fund_Names]
-    selected_funds = st.multiselect("Selected Funds", options=All_Fund_Names, default=saved_funds, max_selections=50)
-    st.session_state['_saved_funds'] = selected_funds
-
-    saved_sectors = st.session_state.get('_saved_sectors_input', [])
-    saved_sectors = [s for s in saved_sectors if s in AllowedSectorNames]
-    selected_sectors = st.multiselect("Selected Sectors To Shock", options=AllowedSectorNames, default=saved_sectors)
-    st.session_state['_saved_sectors_input'] = selected_sectors
+    if '_saved_funds' not in st.session_state:
+        st.session_state['_saved_funds'] = []
+    if '_saved_sectors_input' not in st.session_state:
+        st.session_state['_saved_sectors_input'] = []
+    selected_funds = st.multiselect("Selected Funds", options=All_Fund_Names, default=st.session_state['_saved_funds'], max_selections=50)
+    selected_sectors = st.multiselect("Selected Sectors To Shock", options=AllowedSectorNames, default=st.session_state['_saved_sectors_input'])
 
     st.subheader("Select point calculation and 2D plot parameters")
     selected_tau = st.slider("Tau for point calculation and 2D plot", min_value=min_tau, max_value=max_tau, value=(max_tau+min_tau)//2, step=1)
@@ -47,6 +44,8 @@ def main():
     run = st.button("Run")
 
     if run:
+        st.session_state['_saved_funds'] = selected_funds
+        st.session_state['_saved_sectors_input'] = selected_sectors
         curr_portfolio_returns = load_portfolio(sigma, seed)
         try:
             returns_df_dict, sectors_df_dict = curr_portfolio_returns.portfolio_returns(pd.Timestamp(start_date), pd.Timestamp(end_date), min_tau=min_tau, max_tau=max_tau,

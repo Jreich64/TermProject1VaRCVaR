@@ -29,8 +29,16 @@ def main():
     min_sector_devalue = st.sidebar.number_input("Minimum Sector Devalue Percent", min_value=0.0, max_value=1.0, value=0.0, step=0.01)
     max_sector_devalue = st.sidebar.number_input("Maximum Sector Devalue Percent", min_value=0.0, max_value=1.0, value=0.3, step=0.01)
     st.subheader("Select Funds")
-    selected_funds = st.multiselect("Selected Funds", options=All_Fund_Names, key="selected_funds", max_selections=50)
-    selected_sectors = st.multiselect("Selected Sectors To Shock", options=AllowedSectorNames, key="selected_sectors_input")
+    saved_funds = st.session_state.get('_saved_funds', [])
+    saved_funds = [f for f in saved_funds if f in All_Fund_Names]
+    selected_funds = st.multiselect("Selected Funds", options=All_Fund_Names, default=saved_funds, max_selections=50)
+    st.session_state['_saved_funds'] = selected_funds
+
+    saved_sectors = st.session_state.get('_saved_sectors_input', [])
+    saved_sectors = [s for s in saved_sectors if s in AllowedSectorNames]
+    selected_sectors = st.multiselect("Selected Sectors To Shock", options=AllowedSectorNames, default=saved_sectors)
+    st.session_state['_saved_sectors_input'] = selected_sectors
+
     st.subheader("Select point calculation and 2D plot parameters")
     selected_tau = st.slider("Tau for point calculation and 2D plot", min_value=min_tau, max_value=max_tau, value=(max_tau+min_tau)//2, step=1)
     selected_delta = st.slider("Delta for point calculation and 2D plot", min_value=min_delta, max_value=max_delta, value=(max_delta+min_delta)//2, step=1)
@@ -41,7 +49,7 @@ def main():
     if run:
         curr_portfolio_returns = load_portfolio(sigma, seed)
         try:
-            returns_df_dict, sectors_df_dict = curr_portfolio_returns.portfolio_returns(pd.Timestamp(start_date), pd.Timestamp(end_date), min_tau=min_tau, max_tau=max_tau, 
+            returns_df_dict, sectors_df_dict = curr_portfolio_returns.portfolio_returns(pd.Timestamp(start_date), pd.Timestamp(end_date), min_tau=min_tau, max_tau=max_tau,
             min_delta=min_delta, max_delta=max_delta, n=None, fund_names=selected_funds, use_bridge=use_bridge)
             regular_var, regular_cvar = load_regular_var_and_cvar(returns_df_dict, min_quantile, max_quantile, normalize_returns)
             shocked_returns = shock_returns(returns_df_dict, sectors_df_dict, selected_sectors, selected_devalue_percent)
@@ -66,11 +74,12 @@ def main():
 
         except Exception as e:
             st.error(e)
-    
+
     if st.session_state.get("regular_var") is not None:
+        returns_dict = st.session_state['returns']
         regular_var = st.session_state["regular_var"]
         regular_cvar = st.session_state["regular_cvar"]
-        shocked_returns = shock_returns(st.session_state['returns'], st.session_state['sector_df_dict'], selected_sectors, selected_devalue_percent)
+        shocked_returns = shock_returns(returns_dict, st.session_state['sector_df_dict'], selected_sectors, selected_devalue_percent)
         st.session_state['shocked_returns'] = shocked_returns
         shocked_var, shocked_cvar = load_regular_var_and_cvar(shocked_returns, min_quantile, max_quantile, normalize_returns)
         st.session_state['shocked_var'] = shocked_var
@@ -81,10 +90,19 @@ def main():
         st.session_state['selected_devalue'] = selected_devalue_percent
         st.session_state['selected_sectors'] = selected_sectors
         st.session_state['normalize_returns'] = normalize_returns
-        st.session_state["returns_data"] = st.session_state['returns'][selected_tau, selected_delta]
 
+        # Guard against selected_tau/delta not existing in returns dict
+        if (selected_tau, selected_delta) in returns_dict:
+            st.session_state["returns_data"] = returns_dict[selected_tau, selected_delta]
+        else:
+            st.warning(f"Tau={selected_tau}, Delta={selected_delta} not in computed results. Adjust sliders or click Run again.")
+            return
 
         q = round(selected_quantile, 2)
+        if q not in regular_var:
+            st.warning(f"Quantile={q} not in computed results. Adjust slider or click Run again.")
+            return
+
         var_df = regular_var[q]
         cvar_df = regular_cvar[q]
         shocked_var_df = shocked_var[q]
@@ -120,10 +138,5 @@ def main():
         st.download_button("Download Quantile Sweep", html_q, "var_cvar_quantile_sweep.html", "text/html")
 
 
-
-
-
-
 if __name__ == "__main__":
     main()
-

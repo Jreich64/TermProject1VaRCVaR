@@ -29,8 +29,10 @@ def main():
     min_sector_devalue = st.sidebar.number_input("Minimum Sector Devalue Percent", min_value=0.0, max_value=1.0, value=0.0, step=0.01)
     max_sector_devalue = st.sidebar.number_input("Maximum Sector Devalue Percent", min_value=0.0, max_value=1.0, value=0.3, step=0.01)
     st.subheader("Select Funds")
-    selected_funds = st.multiselect("Selected Funds", options=All_Fund_Names, max_selections=50)
-    selected_sectors = st.multiselect("Selected Sectors To Shock", options=AllowedSectorNames)
+    selected_funds = st.multiselect("Selected Funds", options=All_Fund_Names, default=st.session_state.get('selected_funds', []), max_selections=50)
+    st.session_state['selected_funds'] = selected_funds
+    selected_sectors = st.multiselect("Selected Sectors To Shock", options=AllowedSectorNames, default=st.session_state.get('selected_sectors', []))
+    st.session_state['selected_sectors'] = selected_sectors
     st.subheader("Select point calculation and 2D plot parameters")
     selected_tau = st.slider("Tau for point calculation and 2D plot", min_value=min_tau, max_value=max_tau, value=(max_tau+min_tau)//2, step=1)
     selected_delta = st.slider("Delta for point calculation and 2D plot", min_value=min_delta, max_value=max_delta, value=(max_delta+min_delta)//2, step=1)

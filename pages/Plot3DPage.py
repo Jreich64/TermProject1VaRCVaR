@@ -112,16 +112,26 @@ else:
         returns_dict = st.session_state["returns"]
         sectors_dict = st.session_state["sector_df_dict"]
 
-        devalue_steps = np.round(np.arange(0.0, selected_devalue + 0.01, 0.01), 2)
+        # Check if cached results are still valid
+        cache_key = (tuple(selected_sectors), selected_devalue, q, min_quantile, max_quantile, normalize_returns)
+        cached_key = st.session_state.get("_3d_shock_cache_key")
 
-        shocked_var_frames = {}
-        shocked_cvar_frames = {}
-        with st.spinner("Computing shocked surfaces for each devalue step..."):
-            for dv in devalue_steps:
-                shocked = shock_returns(returns_dict, sectors_dict, selected_sectors, float(dv))
-                sv, sc = load_regular_var_and_cvar(shocked, min_quantile, max_quantile, normalize_returns)
-                shocked_var_frames[float(dv)] = sv[q]
-                shocked_cvar_frames[float(dv)] = sc[q]
+        if cached_key == cache_key and "_3d_shocked_var_frames" in st.session_state:
+            shocked_var_frames = st.session_state["_3d_shocked_var_frames"]
+            shocked_cvar_frames = st.session_state["_3d_shocked_cvar_frames"]
+        else:
+            devalue_steps = np.round(np.arange(0.0, selected_devalue + 0.01, 0.01), 2)
+            shocked_var_frames = {}
+            shocked_cvar_frames = {}
+            with st.spinner("Computing shocked surfaces for each devalue step..."):
+                for dv in devalue_steps:
+                    shocked = shock_returns(returns_dict, sectors_dict, selected_sectors, float(dv))
+                    sv, sc = load_regular_var_and_cvar(shocked, min_quantile, max_quantile, normalize_returns)
+                    shocked_var_frames[float(dv)] = sv[q]
+                    shocked_cvar_frames[float(dv)] = sc[q]
+            st.session_state["_3d_shocked_var_frames"] = shocked_var_frames
+            st.session_state["_3d_shocked_cvar_frames"] = shocked_cvar_frames
+            st.session_state["_3d_shock_cache_key"] = cache_key
 
         st.subheader(f"Shocked VaR Surface at Quantile {q} (animated over Devalue %)")
         st.write(f"Sectors Shocked: {selected_sectors}")

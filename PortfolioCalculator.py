@@ -44,35 +44,37 @@ def main():
     run = st.button("Run")
 
     if run:
-        st.session_state['_saved_funds'] = selected_funds
-        st.session_state['_saved_sectors_input'] = selected_sectors
-        curr_portfolio_returns = load_portfolio(sigma, seed)
-        try:
-            returns_df_dict, sectors_df_dict = curr_portfolio_returns.portfolio_returns(pd.Timestamp(start_date), pd.Timestamp(end_date), min_tau=min_tau, max_tau=max_tau,
-            min_delta=min_delta, max_delta=max_delta, n=None, fund_names=selected_funds, use_bridge=use_bridge)
-            regular_var, regular_cvar = load_regular_var_and_cvar(returns_df_dict, min_quantile, max_quantile, normalize_returns)
-            shocked_returns = shock_returns(returns_df_dict, sectors_df_dict, selected_sectors, selected_devalue_percent)
-            shocked_var, shocked_cvar = load_regular_var_and_cvar(shocked_returns, min_quantile, max_quantile, normalize_returns)
-            st.session_state['selected_tau'] = selected_tau
-            st.session_state['selected_delta'] = selected_delta
-            st.session_state['selected_quantile'] = selected_quantile
-            st.session_state['sector_df_dict'] = sectors_df_dict
-            st.session_state['returns'] = returns_df_dict
-            st.session_state["returns_data"] = returns_df_dict[selected_tau, selected_delta]
-            st.session_state["regular_var"] = regular_var
-            st.session_state["regular_cvar"] = regular_cvar
-            st.session_state['selected_devalue'] = selected_devalue_percent
-            st.session_state['selected_sectors'] = selected_sectors
-            st.session_state['shocked_returns'] = shocked_returns
-            st.session_state['shocked_var'] = shocked_var
-            st.session_state['shocked_cvar'] = shocked_cvar
-            # Clear stale 3D cache so it recomputes with new data
-            st.session_state.pop("_3d_shock_cache_key", None)
-            st.session_state.pop("_3d_shocked_var_frames", None)
-            st.session_state.pop("_3d_shocked_cvar_frames", None)
-
-        except Exception as e:
-            st.error(e)
+        if not selected_funds:
+            st.error("Please select at least one fund before clicking Run.")
+        else:
+            st.session_state['_saved_funds'] = selected_funds
+            st.session_state['_saved_sectors_input'] = selected_sectors
+            curr_portfolio_returns = load_portfolio(sigma, seed)
+            try:
+                returns_df_dict, sectors_df_dict = curr_portfolio_returns.portfolio_returns(pd.Timestamp(start_date), pd.Timestamp(end_date), min_tau=min_tau, max_tau=max_tau,
+                min_delta=min_delta, max_delta=max_delta, n=None, fund_names=selected_funds, use_bridge=use_bridge)
+                regular_var, regular_cvar = load_regular_var_and_cvar(returns_df_dict, min_quantile, max_quantile, normalize_returns)
+                shocked_returns = shock_returns(returns_df_dict, sectors_df_dict, selected_sectors, selected_devalue_percent)
+                shocked_var, shocked_cvar = load_regular_var_and_cvar(shocked_returns, min_quantile, max_quantile, normalize_returns)
+                st.session_state['selected_tau'] = selected_tau
+                st.session_state['selected_delta'] = selected_delta
+                st.session_state['selected_quantile'] = selected_quantile
+                st.session_state['sector_df_dict'] = sectors_df_dict
+                st.session_state['returns'] = returns_df_dict
+                st.session_state["returns_data"] = returns_df_dict[selected_tau, selected_delta]
+                st.session_state["regular_var"] = regular_var
+                st.session_state["regular_cvar"] = regular_cvar
+                st.session_state['selected_devalue'] = selected_devalue_percent
+                st.session_state['selected_sectors'] = selected_sectors
+                st.session_state['shocked_returns'] = shocked_returns
+                st.session_state['shocked_var'] = shocked_var
+                st.session_state['shocked_cvar'] = shocked_cvar
+                # Clear stale 3D cache so it recomputes with new data
+                st.session_state.pop("_3d_shock_cache_key", None)
+                st.session_state.pop("_3d_shocked_var_frames", None)
+                st.session_state.pop("_3d_shocked_cvar_frames", None)
+            except Exception as e:
+                st.error(e)
 
     if st.session_state.get("regular_var") is not None:
         returns_dict = st.session_state['returns']

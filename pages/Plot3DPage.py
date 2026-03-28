@@ -84,7 +84,7 @@ else:
     regular_cvar = st.session_state["regular_cvar"]
     selected_quantile = st.session_state["selected_quantile"]
     selected_sectors = st.session_state["selected_sectors"]
-    selected_devalue = st.session_state["selected_devalue"]
+    selected_devalue = st.session_state.get("_saved_max_devalue", st.session_state.get("selected_devalue", 0.3))
 
     q = round(selected_quantile, 2)
     quantiles = sorted(regular_var.keys())

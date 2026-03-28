@@ -14,20 +14,34 @@ from ComputeHelper import load_portfolio, load_regular_var_and_cvar, shock_retur
 def main():
     st.title("Portfolio Var/CVaR Calculator")
     st.sidebar.header("Model Params Input")
-    use_bridge = st.sidebar.checkbox("Use Brownian Bridge", value=False)
-    normalize_returns = st.sidebar.checkbox("Normalize Var and CVAR to Tau = 365", value=True)
-    sigma = st.sidebar.number_input("Brownian Bridge Sigma", value=1.0, step=0.1)
-    seed = st.sidebar.number_input("Seed", min_value=0, value=0, step=1)
-    start_date = st.sidebar.date_input("Start Date", value=dt.datetime(2005, 12, 31), min_value=dt.datetime(2005, 12, 31), max_value=dt.datetime(2024, 12, 31))
-    end_date = st.sidebar.date_input("End Date", value=dt.datetime(2024, 12, 31), min_value=dt.datetime(2005, 12, 31), max_value=dt.datetime(2024, 12, 31))
-    min_tau = st.sidebar.number_input("Minimum Tau", min_value=1, max_value=366, value=1, step=1)
-    max_tau = st.sidebar.number_input("Maximum Tau", min_value=1, max_value=366, value=366, step=1)
-    min_delta = st.sidebar.number_input("Minimum Delta", min_value=1, max_value=31, value=1, step=1)
-    max_delta = st.sidebar.number_input("Maximum Delta", min_value=1, max_value=31, value=31, step=1)
-    min_quantile = st.sidebar.number_input("Minimum Quantile", min_value=0.01, max_value=0.1, value=0.01, step=0.01)
-    max_quantile = st.sidebar.number_input("Maximum Quantile", min_value=0.01, max_value=0.1, value=0.1, step=0.01)
-    min_sector_devalue = st.sidebar.number_input("Minimum Sector Devalue Percent", min_value=0.0, max_value=1.0, value=0.0, step=0.01)
-    max_sector_devalue = st.sidebar.number_input("Maximum Sector Devalue Percent", min_value=0.0, max_value=1.0, value=0.3, step=0.01)
+    use_bridge = st.sidebar.checkbox("Use Brownian Bridge", value=st.session_state.get('_saved_use_bridge', False))
+    normalize_returns = st.sidebar.checkbox("Normalize Var and CVAR to Tau = 365", value=st.session_state.get('normalize_returns', True))
+    st.session_state['_saved_use_bridge'] = use_bridge
+    st.session_state['normalize_returns'] = normalize_returns
+    sigma = st.sidebar.number_input("Brownian Bridge Sigma", value=st.session_state.get('_saved_sigma', 1.0), step=0.1)
+    seed = st.sidebar.number_input("Seed", min_value=0, value=st.session_state.get('_saved_seed', 0), step=1)
+    start_date = st.sidebar.date_input("Start Date", value=st.session_state.get('_saved_start_date', dt.datetime(2005, 12, 31)), min_value=dt.datetime(2005, 12, 31), max_value=dt.datetime(2024, 12, 31))
+    end_date = st.sidebar.date_input("End Date", value=st.session_state.get('_saved_end_date', dt.datetime(2024, 12, 31)), min_value=dt.datetime(2005, 12, 31), max_value=dt.datetime(2024, 12, 31))
+    min_tau = st.sidebar.number_input("Minimum Tau", min_value=1, max_value=366, value=st.session_state.get('_saved_min_tau', 1), step=1)
+    max_tau = st.sidebar.number_input("Maximum Tau", min_value=1, max_value=366, value=st.session_state.get('_saved_max_tau', 366), step=1)
+    min_delta = st.sidebar.number_input("Minimum Delta", min_value=1, max_value=31, value=st.session_state.get('_saved_min_delta', 1), step=1)
+    max_delta = st.sidebar.number_input("Maximum Delta", min_value=1, max_value=31, value=st.session_state.get('_saved_max_delta', 31), step=1)
+    min_quantile = st.sidebar.number_input("Minimum Quantile", min_value=0.01, max_value=0.1, value=st.session_state.get('_saved_min_quantile', 0.01), step=0.01)
+    max_quantile = st.sidebar.number_input("Maximum Quantile", min_value=0.01, max_value=0.1, value=st.session_state.get('_saved_max_quantile', 0.1), step=0.01)
+    min_sector_devalue = st.sidebar.number_input("Minimum Sector Devalue Percent", min_value=0.0, max_value=1.0, value=st.session_state.get('_saved_min_devalue', 0.0), step=0.01)
+    max_sector_devalue = st.sidebar.number_input("Maximum Sector Devalue Percent", min_value=0.0, max_value=1.0, value=st.session_state.get('_saved_max_devalue', 0.3), step=0.01)
+    st.session_state['_saved_sigma'] = sigma
+    st.session_state['_saved_seed'] = seed
+    st.session_state['_saved_start_date'] = start_date
+    st.session_state['_saved_end_date'] = end_date
+    st.session_state['_saved_min_tau'] = min_tau
+    st.session_state['_saved_max_tau'] = max_tau
+    st.session_state['_saved_min_delta'] = min_delta
+    st.session_state['_saved_max_delta'] = max_delta
+    st.session_state['_saved_min_quantile'] = min_quantile
+    st.session_state['_saved_max_quantile'] = max_quantile
+    st.session_state['_saved_min_devalue'] = min_sector_devalue
+    st.session_state['_saved_max_devalue'] = max_sector_devalue
     st.subheader("Select Funds")
     if '_saved_funds' not in st.session_state:
         st.session_state['_saved_funds'] = []

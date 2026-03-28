@@ -18,7 +18,7 @@ class MyPortfolioReturns:
         #curr_sector_weights_index, curr_sector_weights_columns = curr_sector_weights[0].index, curr_sector_weights[0].columns
         #curr_sector_weights = sum([fund_sector_df.values for fund_sector_df in curr_sector_weights]) / num_funds
         #curr_sector_weights = pd.DataFrame(curr_sector_weights, columns=curr_sector_weights_columns, index=curr_sector_weights_index)
-        curr_sector_weights = pd.concat(curr_sector_df_dict.values()).fillna(0).groupby(level=0).sum() / num_funds
+        curr_sector_weights = pd.concat(curr_sector_df_dict.values()).fillna(0).groupby(level=0).sum() / num_funds / 100
         return curr_portfolio_returns, curr_sector_weights
 
     def portfolio_returns(self, start_date, end_date, min_tau=1, max_tau=3, min_delta=1, max_delta=3, n=None, fund_names=None, use_bridge=False):

@@ -25,8 +25,9 @@ class MyPortfolioReturns:
         returns_dict = {}
         sectors_dict = {}
         all_prices, all_sector_weights = self.portfolio_prices(start_date, end_date, n, fund_names, use_bridge)
+        all_sector_weights = all_sector_weights.astype(np.float32)
         for tau in range(min_tau, max_tau + 1):
-            tau_returns = (((all_prices.shift(-tau) - all_prices) / all_prices).mean(axis=1)).dropna()
+            tau_returns = (((all_prices.shift(-tau) - all_prices) / all_prices).mean(axis=1)).dropna().astype(np.float32)
             for delta in range(min_delta, max_delta + 1):
                 sampled_returns = tau_returns.iloc[::delta]
                 returns_dict[(tau, delta)] = sampled_returns

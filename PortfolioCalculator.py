@@ -59,6 +59,10 @@ def main():
             st.session_state['shocked_returns'] = shocked_returns
             st.session_state['shocked_var'] = shocked_var
             st.session_state['shocked_cvar'] = shocked_cvar
+            # Clear stale 3D cache so it recomputes with new data
+            st.session_state.pop("_3d_shock_cache_key", None)
+            st.session_state.pop("_3d_shocked_var_frames", None)
+            st.session_state.pop("_3d_shocked_cvar_frames", None)
 
         except Exception as e:
             st.error(e)

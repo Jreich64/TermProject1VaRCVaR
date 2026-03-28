@@ -36,6 +36,7 @@ def collect_adj_close(folder_path):
     bond_df = collect_adj_close_helper(bond_path, '_B')
     equity_df = collect_adj_close_helper(equity_path, '_E')
     combined_df = bond_df.join(equity_df, how='outer')
+    combined_df = combined_df.astype(np.float32)
     return combined_df
 
 def foward_and_back_fill_where_valid(df):
@@ -64,7 +65,7 @@ def collect_fund_metadata(folder_path, adj_close_df):
     df = pd.concat([bond_combined, equity_combined])
     fund_sector_dict = {fund: group.drop(columns='ask_id').reindex(adj_close_df.index) for fund, group in df.groupby('ask_id')}
     for key in fund_sector_dict.keys():
-        fund_sector_dict[key] = foward_and_back_fill_where_valid(fund_sector_dict[key]).fillna(0)
+        fund_sector_dict[key] = foward_and_back_fill_where_valid(fund_sector_dict[key]).fillna(0).astype(np.float32)
     return fund_sector_dict
 
 def find_nan_ranges(df_column):

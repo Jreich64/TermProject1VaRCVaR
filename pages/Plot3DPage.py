@@ -4,8 +4,12 @@ import plotly.graph_objects as go
 from ComputeHelper import shock_returns, load_regular_var_and_cvar
 
 
-def build_animated_3d(frames_dict, title, color, z_label="Value", frame_label="Frame"):
+def build_animated_3d(frames_dict, title, color, z_label="Value", frame_label="Frame", start_key=None):
     sorted_keys = sorted(frames_dict.keys())
+    if start_key is not None and start_key in frames_dict:
+        active_idx = sorted_keys.index(start_key)
+    else:
+        active_idx = 0
     first_df = frames_dict[sorted_keys[0]]
     tau_vals = first_df.index.values
     delta_vals = first_df.columns.values
@@ -22,7 +26,7 @@ def build_animated_3d(frames_dict, title, color, z_label="Value", frame_label="F
             name=str(key)
         ))
 
-    first_z = frames_dict[sorted_keys[0]].values
+    first_z = frames_dict[sorted_keys[active_idx]].values
     fig = go.Figure(
         data=[go.Surface(
             x=delta_vals, y=tau_vals, z=first_z,
@@ -33,7 +37,7 @@ def build_animated_3d(frames_dict, title, color, z_label="Value", frame_label="F
     )
 
     sliders = [dict(
-        active=0,
+        active=active_idx,
         steps=[dict(
             method="animate",
             args=[[str(key)], dict(mode="immediate", frame=dict(duration=500, redraw=True), transition=dict(duration=300))],
@@ -44,7 +48,7 @@ def build_animated_3d(frames_dict, title, color, z_label="Value", frame_label="F
     )]
 
     fig.update_layout(
-        title=f"{title} ({frame_label}={sorted_keys[0]})",
+        title=title,
         scene=dict(
             xaxis_title="Delta",
             yaxis_title="Tau",
@@ -85,6 +89,7 @@ else:
     selected_quantile = st.session_state["selected_quantile"]
     selected_sectors = st.session_state["selected_sectors"]
     selected_devalue = st.session_state.get("_saved_max_devalue", st.session_state.get("selected_devalue", 0.3))
+    slider_devalue = float(round(st.session_state.get("selected_devalue", 0.0), 2))
 
     q = round(selected_quantile, 2)
     quantiles = sorted(regular_var.keys())
@@ -95,14 +100,14 @@ else:
 
     # --- Regular VaR animated over quantiles ---
     st.subheader("VaR Surface (animated over Quantile)")
-    fig_var = build_animated_3d(regular_var, f"VaR vs Tau & Delta ({norm_label})", "Blues", z_label="VaR", frame_label="Quantile")
+    fig_var = build_animated_3d(regular_var, f"VaR vs Tau & Delta ({norm_label})", "Blues", z_label="VaR", frame_label="Quantile", start_key=q)
     st.plotly_chart(fig_var, use_container_width=True)
     html_var = fig_var.to_html(include_plotlyjs=True, full_html=True)
     st.download_button("Download VaR 3D", html_var, "var_3d.html", "text/html")
 
     # --- Regular CVaR animated over quantiles ---
     st.subheader("CVaR Surface (animated over Quantile)")
-    fig_cvar = build_animated_3d(regular_cvar, f"CVaR vs Tau & Delta ({norm_label})", "Reds", z_label="CVaR", frame_label="Quantile")
+    fig_cvar = build_animated_3d(regular_cvar, f"CVaR vs Tau & Delta ({norm_label})", "Reds", z_label="CVaR", frame_label="Quantile", start_key=q)
     st.plotly_chart(fig_cvar, use_container_width=True)
     html_cvar = fig_cvar.to_html(include_plotlyjs=True, full_html=True)
     st.download_button("Download CVaR 3D", html_cvar, "cvar_3d.html", "text/html")
@@ -135,13 +140,13 @@ else:
 
         st.subheader(f"Shocked VaR Surface at Quantile {q} (animated over Devalue %)")
         st.write(f"Sectors Shocked: {selected_sectors}")
-        fig_svar = build_animated_3d(shocked_var_frames, f"Shocked VaR (Quantile={q}, {norm_label})", "Greens", z_label="Shocked VaR", frame_label="Devalue %")
+        fig_svar = build_animated_3d(shocked_var_frames, f"Shocked VaR ({norm_label})", "Greens", z_label="Shocked VaR", frame_label="Devalue %", start_key=slider_devalue)
         st.plotly_chart(fig_svar, use_container_width=True)
         html_svar = fig_svar.to_html(include_plotlyjs=True, full_html=True)
         st.download_button("Download Shocked VaR 3D", html_svar, "shocked_var_3d.html", "text/html")
 
         st.subheader(f"Shocked CVaR Surface at Quantile {q} (animated over Devalue %)")
-        fig_scvar = build_animated_3d(shocked_cvar_frames, f"Shocked CVaR (Quantile={q}, {norm_label})", "Purples", z_label="Shocked CVaR", frame_label="Devalue %")
+        fig_scvar = build_animated_3d(shocked_cvar_frames, f"Shocked CVaR ({norm_label})", "Purples", z_label="Shocked CVaR", frame_label="Devalue %", start_key=slider_devalue)
         st.plotly_chart(fig_scvar, use_container_width=True)
         html_scvar = fig_scvar.to_html(include_plotlyjs=True, full_html=True)
         st.download_button("Download Shocked CVaR 3D", html_scvar, "shocked_cvar_3d.html", "text/html")

@@ -50,7 +50,11 @@ def main():
     selected_funds = st.multiselect("Selected Funds", options=All_Fund_Names, default=st.session_state['_saved_funds'], max_selections=50)
     selected_sectors = st.multiselect("Selected Sectors To Shock", options=AllowedSectorNames, default=st.session_state['_saved_sectors_input'])
 
-    st.subheader("Select point calculation and 2D plot parameters")
+    st.subheader("Select point calculation, 2D plot, and 3D plot parameters")
+    st.write("These sliders control the point calculation and 2D plots directly. "
+             "On the 3D page, Tau and Delta are the surface axes. "
+             "Quantile selects the starting frame for unshocked 3D animations and the fixed quantile for shocked devalue animations. "
+             "Devalue Percent selects the starting frame for shocked devalue animations and the fixed devalue for shocked quantile animations.")
     default_tau = st.session_state.get('selected_tau', (max_tau+min_tau)//2)
     default_tau = max(min_tau, min(default_tau, max_tau))
     default_delta = st.session_state.get('selected_delta', (max_delta+min_delta)//2)
@@ -59,10 +63,10 @@ def main():
     default_quantile = max(min_quantile, min(default_quantile, max_quantile))
     default_devalue = st.session_state.get('selected_devalue', (min_sector_devalue+max_sector_devalue)/2)
     default_devalue = max(min_sector_devalue, min(default_devalue, max_sector_devalue))
-    selected_tau = st.slider("Tau for point calculation and 2D plot", min_value=min_tau, max_value=max_tau, value=default_tau, step=1)
-    selected_delta = st.slider("Delta for point calculation and 2D plot", min_value=min_delta, max_value=max_delta, value=default_delta, step=1)
-    selected_quantile = st.slider("Quantile for point calculation and 2D plot", min_value=min_quantile, max_value=max_quantile, value=default_quantile, step=0.01)
-    selected_devalue_percent = st.slider("Sector Shock Devalue Percent for point calculation and 2D plot", min_value=min_sector_devalue, max_value=max_sector_devalue, value=default_devalue, step=0.01)
+    selected_tau = st.slider("Tau", min_value=min_tau, max_value=max_tau, value=default_tau, step=1)
+    selected_delta = st.slider("Delta", min_value=min_delta, max_value=max_delta, value=default_delta, step=1)
+    selected_quantile = st.slider("Quantile", min_value=min_quantile, max_value=max_quantile, value=default_quantile, step=0.01)
+    selected_devalue_percent = st.slider("Sector Shock Devalue Percent", min_value=min_sector_devalue, max_value=max_sector_devalue, value=default_devalue, step=0.01)
     run = st.button("Run")
 
     if run:

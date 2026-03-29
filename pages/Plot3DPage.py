@@ -150,12 +150,30 @@ else:
         fig_svar = build_animated_3d(shocked_var_frames, f"Shocked VaR ({norm_label})", "Greens", z_label="Shocked VaR", frame_label="Devalue %", start_key=slider_devalue)
         st.plotly_chart(fig_svar, use_container_width=True)
         html_svar = fig_svar.to_html(include_plotlyjs=True, full_html=True)
-        st.download_button("Download Shocked VaR 3D", html_svar, "shocked_var_3d.html", "text/html")
+        st.download_button("Download Shocked VaR 3D (Devalue)", html_svar, "shocked_var_3d_devalue.html", "text/html")
 
         st.subheader(f"Shocked CVaR Surface at Quantile {q} (animated over Devalue %)")
         fig_scvar = build_animated_3d(shocked_cvar_frames, f"Shocked CVaR ({norm_label})", "Purples", z_label="Shocked CVaR", frame_label="Devalue %", start_key=slider_devalue)
         st.plotly_chart(fig_scvar, use_container_width=True)
         html_scvar = fig_scvar.to_html(include_plotlyjs=True, full_html=True)
-        st.download_button("Download Shocked CVaR 3D", html_scvar, "shocked_cvar_3d.html", "text/html")
+        st.download_button("Download Shocked CVaR 3D (Devalue)", html_scvar, "shocked_cvar_3d_devalue.html", "text/html")
+
+        # --- Shocked VaR/CVaR animated over quantile ---
+        shocked_var_q_frames = {q_key: shocked_var_all[slider_devalue][q_key] for q_key in quantiles if q_key in shocked_var_all.get(slider_devalue, {})}
+        shocked_cvar_q_frames = {q_key: shocked_cvar_all[slider_devalue][q_key] for q_key in quantiles if q_key in shocked_cvar_all.get(slider_devalue, {})}
+
+        if shocked_var_q_frames:
+            st.subheader(f"Shocked VaR Surface at Devalue {slider_devalue} (animated over Quantile)")
+            st.write(f"Sectors Shocked: {selected_sectors}")
+            fig_svar_q = build_animated_3d(shocked_var_q_frames, f"Shocked VaR ({norm_label})", "Greens", z_label="Shocked VaR", frame_label="Quantile", start_key=q)
+            st.plotly_chart(fig_svar_q, use_container_width=True)
+            html_svar_q = fig_svar_q.to_html(include_plotlyjs=True, full_html=True)
+            st.download_button("Download Shocked VaR 3D (Quantile)", html_svar_q, "shocked_var_3d_quantile.html", "text/html")
+
+            st.subheader(f"Shocked CVaR Surface at Devalue {slider_devalue} (animated over Quantile)")
+            fig_scvar_q = build_animated_3d(shocked_cvar_q_frames, f"Shocked CVaR ({norm_label})", "Purples", z_label="Shocked CVaR", frame_label="Quantile", start_key=q)
+            st.plotly_chart(fig_scvar_q, use_container_width=True)
+            html_scvar_q = fig_scvar_q.to_html(include_plotlyjs=True, full_html=True)
+            st.download_button("Download Shocked CVaR 3D (Quantile)", html_scvar_q, "shocked_cvar_3d_quantile.html", "text/html")
     else:
         st.info("Select sectors to shock on the main page to see shocked 3D plots.")

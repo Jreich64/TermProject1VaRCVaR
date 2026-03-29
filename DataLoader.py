@@ -110,7 +110,7 @@ def brownian_bridge_helper(df_column, nan_ranges, sigma=1.0, seed=0):
             x0 = df_column.iloc[start]
             xt = df_column.iloc[end]
             num_points = end - start + 1
-            increments = my_rng_gen.normal(0.0, sigma*curr_dt)
+            increments = my_rng_gen.normal(0.0, sigma*np.sqrt(curr_dt))
             W = np.concatenate(([0.0], np.cumsum(increments)))
             t = (dates[start:end+1] - dates[start]).astype(float)
             T = t[-1]

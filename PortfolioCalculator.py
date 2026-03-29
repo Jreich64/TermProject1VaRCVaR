@@ -15,8 +15,10 @@ def main():
     st.title("Portfolio Var/CVaR Calculator")
     st.sidebar.header("Model Params Input")
     use_bridge = st.sidebar.checkbox("Use Brownian Bridge", value=st.session_state.get('_saved_use_bridge', False))
+    use_fund_sigmas = st.sidebar.checkbox("Use Per-Fund Sigma for Brownian Bridge", value=st.session_state.get('_saved_use_fund_sigmas', True))
     normalize_returns = st.sidebar.checkbox("Normalize Var and CVAR to Tau = 365", value=st.session_state.get('normalize_returns', False))
     st.session_state['_saved_use_bridge'] = use_bridge
+    st.session_state['_saved_use_fund_sigmas'] = use_fund_sigmas
     st.session_state['normalize_returns'] = normalize_returns
     sigma = st.sidebar.number_input("Brownian Bridge Sigma", value=st.session_state.get('_saved_sigma', 1.0), step=0.1)
     seed = st.sidebar.number_input("Seed", min_value=0, value=st.session_state.get('_saved_seed', 0), step=1)
@@ -75,7 +77,8 @@ def main():
         else:
             st.session_state['_saved_funds'] = selected_funds
             st.session_state['_saved_sectors_input'] = selected_sectors
-            curr_portfolio_returns = load_portfolio(sigma, seed)
+            curr_portfolio_returns = load_portfolio(sigma, seed, use_fund_sigmas)
+            st.session_state['fund_sigmas'] = curr_portfolio_returns.close_pricer.fund_sigmas
             try:
                 returns_df_dict, sectors_df_dict = curr_portfolio_returns.portfolio_returns(pd.Timestamp(start_date), pd.Timestamp(end_date), min_tau=min_tau, max_tau=max_tau,
                 min_delta=min_delta, max_delta=max_delta, n=None, fund_names=selected_funds, use_bridge=use_bridge)

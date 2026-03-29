@@ -5,10 +5,11 @@ import numpy as np
 import pandas as pd
 
 class MyPortfolioReturns:
-    def __init__(self, sigma, seed):
+    def __init__(self, sigma, seed, use_fund_sigmas=True):
         self.sigma = sigma
         self.seed = seed
-        self.close_pricer = MyClosePrices(sigma=sigma, seed=seed)
+        self.use_fund_sigmas = use_fund_sigmas
+        self.close_pricer = MyClosePrices(sigma=sigma, seed=seed, use_fund_sigmas=use_fund_sigmas)
 
     def portfolio_prices(self, start_date, end_date, n=None, fund_names=None, use_bridge=False):
         curr_returns, curr_sector_df_dict = self.close_pricer.fund_prices(start_date, end_date, n, fund_names, use_bridge)

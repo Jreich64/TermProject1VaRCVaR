@@ -4,6 +4,7 @@ import gdown
 import os
 from pathlib import Path
 from functools import reduce
+from SigmaFinder import calculate_fund_sigmas
 
 def download_main_data():
     local_folder = Path.cwd()
@@ -119,32 +120,37 @@ def brownian_bridge_helper(df_column, nan_ranges, sigma=1.0, seed=0):
     return df_column
 
 
-def brownian_bridge(df, sigma, seed):
+def brownian_bridge(df, sigma, seed, fund_sigmas=None):
     df = df.copy()
     columns = df.columns
     for column in columns:
+        col_sigma = float(fund_sigmas[column]) if fund_sigmas is not None else sigma
         nan_ranges = find_nan_ranges(df[column])
         if len(nan_ranges) > 0:
-            df[column] = brownian_bridge_helper(df[column], nan_ranges, sigma, seed)
+            df[column] = brownian_bridge_helper(df[column], nan_ranges, col_sigma, seed)
     return df
 
 
 _data_cache = {}
 
-def get_all_data(sigma, seed):
-    key = (sigma, seed)
+def get_all_data(sigma, seed, use_fund_sigmas=True):
+    key = (sigma, seed, use_fund_sigmas)
     if key in _data_cache:
         return _data_cache[key]
     folder_path = download_main_data()
     adj_close_df = collect_adj_close(folder_path)
     fund_sector_df_dict = collect_fund_metadata(folder_path, adj_close_df)
-    adj_close_with_brownian_bridge = brownian_bridge(adj_close_df, sigma, seed)
-    result = (adj_close_df, adj_close_with_brownian_bridge, fund_sector_df_dict)
+    fund_sigmas = calculate_fund_sigmas(adj_close_df)
+    if use_fund_sigmas:
+        adj_close_with_brownian_bridge = brownian_bridge(adj_close_df, sigma, seed, fund_sigmas=fund_sigmas)
+    else:
+        adj_close_with_brownian_bridge = brownian_bridge(adj_close_df, sigma, seed)
+    result = (adj_close_df, adj_close_with_brownian_bridge, fund_sector_df_dict, fund_sigmas)
     _data_cache[key] = result
     return result
 
 if __name__ == "__main__":
     sigma = 1.0
     seed = 0
-    adj_close_df, adj_close_with_brownian_bridge, fund_sector_df_dict = get_all_data(sigma, seed)
+    adj_close_df, adj_close_with_brownian_bridge, fund_sector_df_dict, fund_sigmas = get_all_data(sigma, seed)
     print(adj_close_with_brownian_bridge)

@@ -5,8 +5,8 @@ import pandas as pd
 
 
 @st.cache_resource(show_spinner="Loading Portfolio")
-def load_portfolio(sigma, seed):
-    return MyPortfolioReturns(sigma, seed)
+def load_portfolio(sigma, seed, use_fund_sigmas=True):
+    return MyPortfolioReturns(sigma, seed, use_fund_sigmas)
 
 
 @st.cache_data(show_spinner="Computing VaR and CVaR")

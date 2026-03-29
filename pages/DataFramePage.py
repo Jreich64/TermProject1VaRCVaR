@@ -44,3 +44,8 @@ else:
 
     st.subheader(f"Shocked CVaR at quantile {selected_quantile}")
     st.dataframe(shocked_cvar_dict[selected_quantile_key])
+
+    if "fund_sigmas" in st.session_state:
+        st.subheader("Per-Fund Brownian Bridge Sigma (Daily Log-Return Std Dev)")
+        fund_sigmas = st.session_state["fund_sigmas"]
+        st.dataframe(fund_sigmas.rename("Sigma").to_frame())

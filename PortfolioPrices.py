@@ -5,11 +5,12 @@ import numpy as np
 import pandas as pd
 
 class MyClosePrices:
-    def __init__(self, sigma=1.0, seed=0):
+    def __init__(self, sigma=1.0, seed=0, use_fund_sigmas=True):
         self.sigma = sigma
         self.seed = seed
+        self.use_fund_sigmas = use_fund_sigmas
         self.my_rng_gen = np.random.default_rng(seed)
-        self.adj_close, self.adj_close_with_bridge, self.fund_sector_df_dict = get_all_data(sigma, seed)
+        self.adj_close, self.adj_close_with_bridge, self.fund_sector_df_dict, self.fund_sigmas = get_all_data(sigma, seed, use_fund_sigmas)
         self.min_start_date = pd.to_datetime('2005-12-31')
         self.max_start_date = pd.to_datetime('2024-12-31')
         self.max_num_funds = 50

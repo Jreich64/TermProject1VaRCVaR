@@ -15,11 +15,14 @@ def main():
     st.title("Portfolio Var/CVaR Calculator")
     st.sidebar.header("Model Params Input")
     use_bridge = st.sidebar.checkbox("Use Brownian Bridge", value=st.session_state.get('_saved_use_bridge', False))
-    use_fund_sigmas = st.sidebar.checkbox("Use Per-Fund Sigma for Brownian Bridge", value=st.session_state.get('_saved_use_fund_sigmas', True))
     normalize_returns = st.sidebar.checkbox("Normalize Var and CVAR to Tau = 365", value=st.session_state.get('normalize_returns', False))
     st.session_state['_saved_use_bridge'] = use_bridge
-    st.session_state['_saved_use_fund_sigmas'] = use_fund_sigmas
     st.session_state['normalize_returns'] = normalize_returns
+    if use_bridge:
+        use_fund_sigmas = st.sidebar.checkbox("Use Per-Fund Sigma for Brownian Bridge", value=st.session_state.get('_saved_use_fund_sigmas', True))
+        st.session_state['_saved_use_fund_sigmas'] = use_fund_sigmas
+    else:
+        use_fund_sigmas = False
     sigma = st.sidebar.number_input("Brownian Bridge Sigma", value=st.session_state.get('_saved_sigma', 1.0), step=0.1)
     seed = st.sidebar.number_input("Seed", min_value=0, value=st.session_state.get('_saved_seed', 0), step=1)
     start_date = st.sidebar.date_input("Start Date", value=st.session_state.get('_saved_start_date', dt.datetime(2005, 12, 31)), min_value=dt.datetime(2005, 12, 31), max_value=dt.datetime(2024, 12, 31))

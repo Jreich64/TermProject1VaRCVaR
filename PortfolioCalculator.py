@@ -15,7 +15,7 @@ def main():
     st.title("Portfolio Var/CVaR Calculator")
     st.sidebar.header("Model Params Input")
     use_bridge = st.sidebar.checkbox("Use Brownian Bridge", value=st.session_state.get('_saved_use_bridge', False))
-    normalize_returns = st.sidebar.checkbox("Normalize Var and CVAR to Tau = 365", value=st.session_state.get('normalize_returns', True))
+    normalize_returns = st.sidebar.checkbox("Normalize Var and CVAR to Tau = 365", value=st.session_state.get('normalize_returns', False))
     st.session_state['_saved_use_bridge'] = use_bridge
     st.session_state['normalize_returns'] = normalize_returns
     sigma = st.sidebar.number_input("Brownian Bridge Sigma", value=st.session_state.get('_saved_sigma', 1.0), step=0.1)

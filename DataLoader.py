@@ -99,13 +99,13 @@ def brownian_bridge_helper(df_column, nan_ranges, sigma=1.0, seed=0):
             curr_dt = np.flip(dt[0:end])
             increments = my_rng_gen.normal(0.0, sigma * np.sqrt(curr_dt))
             log_returns = np.cumsum(increments)
-            df_column.iloc[0:end] = x0 * np.exp(-log_returns)
+            df_column.iloc[0:end] = (x0 * np.exp(-log_returns)).astype(df_column.dtype)
         elif end >= len_df:
             x0 = df_column.iloc[start]
             curr_dt = dt[start:]
             increments = my_rng_gen.normal(0.0, sigma * np.sqrt(curr_dt))
             log_returns = np.cumsum(increments)
-            df_column.iloc[start + 1:] = x0 * np.exp(log_returns)
+            df_column.iloc[start + 1:] = (x0 * np.exp(log_returns)).astype(df_column.dtype)
         else:
             curr_dt = dt[start:end]
             x0 = df_column.iloc[start]
@@ -116,7 +116,7 @@ def brownian_bridge_helper(df_column, nan_ranges, sigma=1.0, seed=0):
             t = (dates[start:end+1] - dates[start]).astype(float)
             T = t[-1]
             bridge = x0 + (xt-x0)*(t/T) + (W - ((t/T)*W[-1]))
-            df_column.iloc[start+1:end] = bridge[1:-1]
+            df_column.iloc[start+1:end] = (bridge[1:-1]).astype(df_column.dtype)
     return df_column
 
 

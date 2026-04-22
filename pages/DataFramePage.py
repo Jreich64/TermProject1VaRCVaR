@@ -49,3 +49,33 @@ else:
         st.subheader("Per-Fund Brownian Bridge Sigma (Daily Log-Return Std Dev)")
         fund_sigmas = st.session_state["fund_sigmas"]
         st.dataframe(fund_sigmas.rename("Sigma").to_frame())
+
+    ff5_fits = st.session_state.get("ff5_fits")
+    if ff5_fits is not None and not ff5_fits.empty:
+        st.subheader("Fama-French 5 Factor Coefficients (Equity Funds)")
+        st.write(
+            "OLS regression of each `_E` fund's daily excess log return on the "
+            "Fama-French 5 factors (Mkt-RF, SMB, HML, RMW, CMA). `alpha` is the "
+            "daily intercept, `beta_*` are factor loadings, `resid_std` is the "
+            "daily residual standard deviation, `r_squared` is the in-sample fit, "
+            "and `n_obs` is the number of overlapping daily observations used."
+        )
+        # Format with reasonable precision; keep n_obs as int.
+        styled = ff5_fits.style.format({
+            "alpha": "{:.6f}",
+            "beta_Mkt-RF": "{:.4f}",
+            "beta_SMB": "{:.4f}",
+            "beta_HML": "{:.4f}",
+            "beta_RMW": "{:.4f}",
+            "beta_CMA": "{:.4f}",
+            "resid_std": "{:.6f}",
+            "r_squared": "{:.4f}",
+            "n_obs": "{:d}",
+        })
+        st.dataframe(styled, use_container_width=True)
+        st.download_button(
+            "Download FF5 Fits (CSV)",
+            ff5_fits.to_csv().encode("utf-8"),
+            "ff5_fits.csv",
+            "text/csv",
+        )

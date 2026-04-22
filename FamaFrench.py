@@ -161,3 +161,89 @@ def ff5_simulate_log_returns(target_dates: pd.DatetimeIndex,
     factor_part = fit["alpha"] + X @ fit["betas"] + rf
     eps = rng.choice(fit["residuals"], size=len(factor_part), replace=True)
     return factor_part + eps
+
+
+# ---------- Bulk fits for display ----------
+
+FF5_FIT_COLUMNS = [
+    "alpha",
+    "beta_Mkt-RF",
+    "beta_SMB",
+    "beta_HML",
+    "beta_RMW",
+    "beta_CMA",
+    "resid_std",
+    "r_squared",
+    "n_obs",
+]
+
+
+def _compute_all_ff5_fits_impl(adj_close_df: pd.DataFrame, min_obs: int = 252) -> pd.DataFrame:
+    """Fit FF5 for every equity (`_E`) column in `adj_close_df`.
+
+    Returns a DataFrame indexed by fund ticker with columns:
+      alpha, beta_<factor> (5), resid_std, r_squared, n_obs.
+    Funds with insufficient overlap (<min_obs days) get NaN coefficients
+    and `n_obs` reports the actual overlap count (or 0 if no overlap).
+    """
+    try:
+        factors = load_ff5_daily()
+    except Exception:
+        # No factor data → return empty frame so caller can skip the section
+        return pd.DataFrame(columns=FF5_FIT_COLUMNS)
+
+    rows = {}
+    for col in adj_close_df.columns:
+        if not str(col).endswith("_E"):
+            continue
+        prices = adj_close_df[col].dropna()
+        if len(prices) < min_obs + 1:
+            rows[col] = {c: np.nan for c in FF5_FIT_COLUMNS}
+            rows[col]["n_obs"] = int(len(prices))
+            continue
+
+        log_returns = np.log(prices / prices.shift(1)).dropna()
+        fit = fit_ff5(log_returns, factors, min_obs=min_obs)
+        if fit is None:
+            overlap = log_returns.index.intersection(factors.index)
+            rows[col] = {c: np.nan for c in FF5_FIT_COLUMNS}
+            rows[col]["n_obs"] = int(len(overlap))
+            continue
+
+        # R² = 1 - SS_resid / SS_tot, where the denominator uses excess returns
+        fr = log_returns.loc[log_returns.index.intersection(factors.index)].astype(np.float64)
+        excess = (fr - factors.loc[fr.index, "RF"]).values
+        ss_tot = float(np.sum((excess - excess.mean()) ** 2))
+        ss_res = float(np.sum(fit["residuals"] ** 2))
+        r2 = float("nan") if ss_tot == 0.0 else 1.0 - ss_res / ss_tot
+
+        rows[col] = {
+            "alpha": fit["alpha"],
+            "beta_Mkt-RF": float(fit["betas"][0]),
+            "beta_SMB": float(fit["betas"][1]),
+            "beta_HML": float(fit["betas"][2]),
+            "beta_RMW": float(fit["betas"][3]),
+            "beta_CMA": float(fit["betas"][4]),
+            "resid_std": float(np.std(fit["residuals"], ddof=1)) if len(fit["residuals"]) > 1 else float("nan"),
+            "r_squared": r2,
+            "n_obs": fit["n_obs"],
+        }
+
+    if not rows:
+        return pd.DataFrame(columns=FF5_FIT_COLUMNS)
+
+    df = pd.DataFrame.from_dict(rows, orient="index")
+    df = df[FF5_FIT_COLUMNS]
+    df.index.name = "Fund"
+    return df.sort_index()
+
+
+if _HAS_STREAMLIT:
+    @st.cache_resource(show_spinner="Fitting Fama-French 5 factors per fund")
+    def compute_all_ff5_fits(_adj_close_df: pd.DataFrame, fits_id: int, min_obs: int = 252) -> pd.DataFrame:
+        # Underscore on `_adj_close_df` skips Streamlit's hashing (DataFrames are
+        # expensive to hash); `fits_id` is the actual cache key.
+        return _compute_all_ff5_fits_impl(_adj_close_df, min_obs=min_obs)
+else:
+    def compute_all_ff5_fits(_adj_close_df: pd.DataFrame, fits_id: int = 0, min_obs: int = 252) -> pd.DataFrame:
+        return _compute_all_ff5_fits_impl(_adj_close_df, min_obs=min_obs)

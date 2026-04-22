@@ -9,6 +9,7 @@ from FundNames import Fund_Names as All_Fund_Names
 from SectorNames import AllowedSectorNames
 from PlotHelper2D import plot_var_cvar_2d
 from ComputeHelper import load_portfolio, load_regular_var_and_cvar, shock_returns
+from FamaFrench import compute_all_ff5_fits
 
 
 def main():
@@ -82,6 +83,13 @@ def main():
             st.session_state['_saved_sectors_input'] = selected_sectors
             curr_portfolio_returns = load_portfolio(sigma, seed, use_fund_sigmas)
             st.session_state['fund_sigmas'] = curr_portfolio_returns.close_pricer.fund_sigmas
+            adj_close_raw = curr_portfolio_returns.close_pricer.adj_close
+            try:
+                st.session_state['ff5_fits'] = compute_all_ff5_fits(adj_close_raw, id(adj_close_raw))
+            except Exception as ff5_err:
+                # Don't fail the whole run if FF5 data isn't loadable; just skip the table.
+                st.session_state['ff5_fits'] = None
+                st.warning(f"Could not compute Fama-French 5 factor fits: {ff5_err}")
             try:
                 returns_df_dict, sectors_df_dict = curr_portfolio_returns.portfolio_returns(pd.Timestamp(start_date), pd.Timestamp(end_date), min_tau=min_tau, max_tau=max_tau,
                 min_delta=min_delta, max_delta=max_delta, n=None, fund_names=selected_funds, use_bridge=use_bridge)

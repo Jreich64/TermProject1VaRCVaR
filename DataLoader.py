@@ -138,20 +138,29 @@ def brownian_bridge(df, sigma, seed, fund_sigmas=None):
     df = df.copy()
     columns = list(df.columns)
 
+    # IMPORTANT: pandas DataFrame __getitem__ is NOT thread-safe (it mutates an
+    # internal block-manager cache). Extract every column as a standalone Series
+    # in the main thread BEFORE handing work off to the pool.
+    column_series = {col: df[col].copy() for col in columns}
+
     def _process_column(column):
         col_sigma = float(fund_sigmas[column]) if fund_sigmas is not None else sigma
-        nan_ranges = find_nan_ranges(df[column])
+        series = column_series[column]
+        nan_ranges = find_nan_ranges(series)
         if not nan_ranges:
             return column, None
         # Per-column seed keeps results reproducible AND avoids RNG contention across threads
         col_seed = (seed + (hash(str(column)) & 0x7FFFFFFF)) & 0x7FFFFFFF
-        filled = brownian_bridge_helper(df[column], nan_ranges, col_sigma, col_seed)
+        filled = brownian_bridge_helper(series, nan_ranges, col_sigma, col_seed)
         return column, filled
 
     with ThreadPoolExecutor(max_workers=_bridge_safe_workers()) as ex:
-        for column, filled in ex.map(_process_column, columns):
-            if filled is not None:
-                df[column] = filled
+        results = list(ex.map(_process_column, columns))
+
+    # Write results back single-threaded (DataFrame __setitem__ also isn't thread-safe)
+    for column, filled in results:
+        if filled is not None:
+            df[column] = filled
     return df
 
 

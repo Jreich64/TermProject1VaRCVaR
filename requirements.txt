@@ -4,3 +4,4 @@ numpy
 plotly
 gdown
 scipy
+pandas-datareader

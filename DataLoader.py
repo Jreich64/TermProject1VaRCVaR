@@ -99,6 +99,46 @@ def find_nan_ranges(df_column):
         nan_ranges.append((start, len(df_column) - 1))
     return nan_ranges
 
+def _try_ff5_backfill(df_column, end, x0, rng):
+    """Attempt FF5-driven backfill for an equity fund's missing prefix.
+
+    Returns the filled prefix as an ndarray of length `end`, or None if FF5
+    is unavailable / insufficient data / fund isn't equity. Caller falls back
+    to GBM on None.
+    """
+    fund_name = str(df_column.name) if df_column.name is not None else ""
+    if not fund_name.endswith("_E"):
+        return None  # bond funds: caller falls back to GBM
+    try:
+        from FamaFrench import load_ff5_daily, fit_ff5, ff5_simulate_log_returns
+        factors = load_ff5_daily()
+
+        # Fit on the fund's available log-return history
+        observed = df_column.dropna()
+        if len(observed) < 252:
+            return None
+        fund_log_returns = np.log(observed).diff().dropna()
+        fit = fit_ff5(fund_log_returns, factors)
+        if fit is None:
+            return None
+
+        # Simulate returns for dates t_1 .. t_end (shifted-by-one source so
+        # sim[i] is the return going from index i to index i+1).
+        target_dates = df_column.index[1:end + 1]
+        sim_log_returns = ff5_simulate_log_returns(target_dates, fit, factors, rng)
+        if sim_log_returns is None:
+            return None
+
+        # Backward walk: log_P[i] = log(x0) - sum(sim[i:end])
+        # Equivalent to reversed cumsum on reversed array, then reversed back.
+        back_cumsum = np.cumsum(sim_log_returns[::-1])[::-1]
+        log_prices = np.log(float(x0)) - back_cumsum
+        return np.exp(log_prices)
+    except Exception:
+        # Any failure (missing CSV, network, dependency) → quietly fall back to GBM
+        return None
+
+
 def brownian_bridge_helper(df_column, nan_ranges, sigma=1.0, seed=0):
     my_rng_gen = np.random.default_rng(seed=seed)
     df_column = df_column.copy()
@@ -109,8 +149,15 @@ def brownian_bridge_helper(df_column, nan_ranges, sigma=1.0, seed=0):
         start -= 1
         end +=1
         if start < 0:
-            # NaN block at the very beginning: walk BACKWARD from the first known price.
+            # NaN block at the very beginning: try FF5-driven backfill first
+            # (equity funds only, with enough overlap), fall back to GBM.
             x0 = df_column.iloc[end]
+            ff5_filled = _try_ff5_backfill(df_column, end, x0, my_rng_gen)
+            if ff5_filled is not None:
+                df_column.iloc[0:end] = ff5_filled.astype(df_column.dtype)
+                continue
+
+            # GBM fallback: walk BACKWARD from the first known price.
             curr_dt = np.flip(dt[0:end])  # time gaps in backward order
             increments = my_rng_gen.normal(0.0, sigma * np.sqrt(curr_dt))
             log_returns = np.cumsum(increments)

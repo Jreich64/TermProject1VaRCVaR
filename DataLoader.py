@@ -109,28 +109,37 @@ def brownian_bridge_helper(df_column, nan_ranges, sigma=1.0, seed=0):
         start -= 1
         end +=1
         if start < 0:
+            # NaN block at the very beginning: walk BACKWARD from the first known price.
             x0 = df_column.iloc[end]
-            curr_dt = np.flip(dt[0:end])
+            curr_dt = np.flip(dt[0:end])  # time gaps in backward order
             increments = my_rng_gen.normal(0.0, sigma * np.sqrt(curr_dt))
             log_returns = np.cumsum(increments)
-            df_column.iloc[0:end] = (x0 * np.exp(-log_returns)).astype(df_column.dtype)
+            # log_returns[i] = noise after (i+1) backward steps from anchor at `end`,
+            # which lands at position end-1-i. Reverse before assigning so position 0
+            # gets the most-walked value and position end-1 gets the least-walked.
+            df_column.iloc[0:end] = (x0 * np.exp(-log_returns))[::-1].astype(df_column.dtype)
         elif end >= len_df:
+            # NaN block at the very end: walk FORWARD from the last known price.
             x0 = df_column.iloc[start]
             curr_dt = dt[start:]
             increments = my_rng_gen.normal(0.0, sigma * np.sqrt(curr_dt))
             log_returns = np.cumsum(increments)
             df_column.iloc[start + 1:] = (x0 * np.exp(log_returns)).astype(df_column.dtype)
         else:
+            # Geometric Brownian bridge between two known anchors. Doing this in
+            # log-space (then exponentiating) keeps the path strictly positive
+            # and consistent with how `sigma` was estimated (std of log returns).
             curr_dt = dt[start:end]
             x0 = df_column.iloc[start]
             xt = df_column.iloc[end]
-            num_points = end - start + 1
-            increments = my_rng_gen.normal(0.0, sigma*np.sqrt(curr_dt))
+            increments = my_rng_gen.normal(0.0, sigma * np.sqrt(curr_dt))
             W = np.concatenate(([0.0], np.cumsum(increments)))
             t = (dates[start:end+1] - dates[start]).astype(float)
             T = t[-1]
-            bridge = x0 + (xt-x0)*(t/T) + (W - ((t/T)*W[-1]))
-            df_column.iloc[start+1:end] = (bridge[1:-1]).astype(df_column.dtype)
+            log_x0, log_xt = np.log(x0), np.log(xt)
+            log_bridge = log_x0 + (log_xt - log_x0) * (t / T) + (W - (t / T) * W[-1])
+            bridge = np.exp(log_bridge)
+            df_column.iloc[start+1:end] = bridge[1:-1].astype(df_column.dtype)
     return df_column
 
 

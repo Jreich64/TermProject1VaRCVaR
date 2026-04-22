@@ -99,43 +99,68 @@ def find_nan_ranges(df_column):
         nan_ranges.append((start, len(df_column) - 1))
     return nan_ranges
 
-def _try_ff5_backfill(df_column, end, x0, rng):
-    """Attempt FF5-driven backfill for an equity fund's missing prefix.
+def _fit_ff5_for_column(df_column):
+    """Fit Fama-French 5 factors for an equity fund's available history.
 
-    Returns the filled prefix as an ndarray of length `end`, or None if FF5
-    is unavailable / insufficient data / fund isn't equity. Caller falls back
-    to GBM on None.
+    Returns (fit_dict, factors_df) on success, (None, None) otherwise.
+    Reasons to return None: non-equity fund, <252 valid observations, fit
+    failure, missing CSV / dependency. Caller falls back to GBM in any None case.
     """
     fund_name = str(df_column.name) if df_column.name is not None else ""
     if not fund_name.endswith("_E"):
-        return None  # bond funds: caller falls back to GBM
+        return None, None
     try:
-        from FamaFrench import load_ff5_daily, fit_ff5, ff5_simulate_log_returns
+        from FamaFrench import load_ff5_daily, fit_ff5
         factors = load_ff5_daily()
-
-        # Fit on the fund's available log-return history
         observed = df_column.dropna()
         if len(observed) < 252:
-            return None
+            return None, None
         fund_log_returns = np.log(observed).diff().dropna()
         fit = fit_ff5(fund_log_returns, factors)
         if fit is None:
-            return None
+            return None, None
+        return fit, factors
+    except Exception:
+        return None, None
 
-        # Simulate returns for dates t_1 .. t_end (shifted-by-one source so
-        # sim[i] is the return going from index i to index i+1).
+
+def _ff5_backfill(df_column, end, x0, fit, factors, rng):
+    """Backward-fill the missing prefix [0, end) using FF5.
+
+    `sim_log_returns[k]` represents the daily return going from position k
+    to position k+1. Walking backward from x0 at position `end`:
+        log P_i = log(x0) - sum(sim[i:end]),   i = 0, ..., end-1
+    """
+    try:
+        from FamaFrench import ff5_simulate_log_returns
         target_dates = df_column.index[1:end + 1]
         sim_log_returns = ff5_simulate_log_returns(target_dates, fit, factors, rng)
         if sim_log_returns is None:
             return None
-
-        # Backward walk: log_P[i] = log(x0) - sum(sim[i:end])
-        # Equivalent to reversed cumsum on reversed array, then reversed back.
         back_cumsum = np.cumsum(sim_log_returns[::-1])[::-1]
         log_prices = np.log(float(x0)) - back_cumsum
         return np.exp(log_prices)
     except Exception:
-        # Any failure (missing CSV, network, dependency) → quietly fall back to GBM
+        return None
+
+
+def _ff5_forward_fill(df_column, start, x0, fit, factors, rng):
+    """Forward-fill the missing suffix (start, len_df) using FF5.
+
+    `sim_log_returns[k]` represents the daily return going from position
+    start+k to position start+k+1. Walking forward from x0 at position `start`:
+        log P_{start+1+k} = log(x0) + sum(sim[0:k+1]),   k = 0, ..., len-start-2
+    """
+    try:
+        from FamaFrench import ff5_simulate_log_returns
+        target_dates = df_column.index[start + 1:]
+        sim_log_returns = ff5_simulate_log_returns(target_dates, fit, factors, rng)
+        if sim_log_returns is None:
+            return None
+        forward_cumsum = np.cumsum(sim_log_returns)
+        log_prices = np.log(float(x0)) + forward_cumsum
+        return np.exp(log_prices)
+    except Exception:
         return None
 
 
@@ -145,17 +170,22 @@ def brownian_bridge_helper(df_column, nan_ranges, sigma=1.0, seed=0):
     len_df = len(df_column)
     dates = df_column.index.to_numpy(dtype='datetime64[D]')
     dt = np.diff(dates).astype(float)
+
+    # Fit FF5 once per equity column (None for bonds or insufficient data).
+    # Shared between backward and forward fill — we never refit per gap.
+    ff5_fit, ff5_factors = _fit_ff5_for_column(df_column)
+
     for start, end in nan_ranges:
         start -= 1
         end +=1
         if start < 0:
-            # NaN block at the very beginning: try FF5-driven backfill first
-            # (equity funds only, with enough overlap), fall back to GBM.
+            # NaN block at the very beginning: try FF5 backfill first, fall back to GBM.
             x0 = df_column.iloc[end]
-            ff5_filled = _try_ff5_backfill(df_column, end, x0, my_rng_gen)
-            if ff5_filled is not None:
-                df_column.iloc[0:end] = ff5_filled.astype(df_column.dtype)
-                continue
+            if ff5_fit is not None:
+                ff5_filled = _ff5_backfill(df_column, end, x0, ff5_fit, ff5_factors, my_rng_gen)
+                if ff5_filled is not None:
+                    df_column.iloc[0:end] = ff5_filled.astype(df_column.dtype)
+                    continue
 
             # GBM fallback: walk BACKWARD from the first known price.
             curr_dt = np.flip(dt[0:end])  # time gaps in backward order
@@ -166,8 +196,15 @@ def brownian_bridge_helper(df_column, nan_ranges, sigma=1.0, seed=0):
             # gets the most-walked value and position end-1 gets the least-walked.
             df_column.iloc[0:end] = (x0 * np.exp(-log_returns))[::-1].astype(df_column.dtype)
         elif end >= len_df:
-            # NaN block at the very end: walk FORWARD from the last known price.
+            # NaN block at the very end: try FF5 forward fill first, fall back to GBM.
             x0 = df_column.iloc[start]
+            if ff5_fit is not None:
+                ff5_filled = _ff5_forward_fill(df_column, start, x0, ff5_fit, ff5_factors, my_rng_gen)
+                if ff5_filled is not None:
+                    df_column.iloc[start + 1:] = ff5_filled.astype(df_column.dtype)
+                    continue
+
+            # GBM fallback: walk FORWARD from the last known price.
             curr_dt = dt[start:]
             increments = my_rng_gen.normal(0.0, sigma * np.sqrt(curr_dt))
             log_returns = np.cumsum(increments)

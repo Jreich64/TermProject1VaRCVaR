@@ -4,7 +4,21 @@ import gdown
 import os
 from pathlib import Path
 from functools import reduce
+from concurrent.futures import ThreadPoolExecutor
 from SigmaFinder import calculate_fund_sigmas
+
+
+def _bridge_safe_workers():
+    """Cgroup-aware worker count so we don't oversubscribe Railway containers."""
+    quota = os.cpu_count() or 2
+    try:
+        with open("/sys/fs/cgroup/cpu.max") as f:
+            limit, period = f.read().split()
+            if limit != "max":
+                quota = max(1, int(int(limit) // int(period)))
+    except (FileNotFoundError, ValueError, OSError):
+        pass
+    return max(1, min(4, quota))
 
 def download_main_data():
     local_folder = Path.cwd()
@@ -122,12 +136,22 @@ def brownian_bridge_helper(df_column, nan_ranges, sigma=1.0, seed=0):
 
 def brownian_bridge(df, sigma, seed, fund_sigmas=None):
     df = df.copy()
-    columns = df.columns
-    for column in columns:
+    columns = list(df.columns)
+
+    def _process_column(column):
         col_sigma = float(fund_sigmas[column]) if fund_sigmas is not None else sigma
         nan_ranges = find_nan_ranges(df[column])
-        if len(nan_ranges) > 0:
-            df[column] = brownian_bridge_helper(df[column], nan_ranges, col_sigma, seed)
+        if not nan_ranges:
+            return column, None
+        # Per-column seed keeps results reproducible AND avoids RNG contention across threads
+        col_seed = (seed + (hash(str(column)) & 0x7FFFFFFF)) & 0x7FFFFFFF
+        filled = brownian_bridge_helper(df[column], nan_ranges, col_sigma, col_seed)
+        return column, filled
+
+    with ThreadPoolExecutor(max_workers=_bridge_safe_workers()) as ex:
+        for column, filled in ex.map(_process_column, columns):
+            if filled is not None:
+                df[column] = filled
     return df
 
 
